@@ -1,4 +1,6 @@
 using System;
+using System.Text;
+using System.IO;
 
 namespace Ludo
 {
@@ -6,6 +8,8 @@ namespace Ludo
     {
         static void Main(string[] args)
         {
+            string filePath = "Salvar_Jogadas.txt";
+
             // Solicita ao usuário a quantidade de jogadores (2-4)
             Console.WriteLine("Escolha a Quantidade de jogadores (2-4):");
             int quantidadeDeJogadores = int.Parse(Console.ReadLine());
@@ -57,6 +61,9 @@ namespace Ludo
                     int resultadoDado = tabuleiro.Dados();
                     Console.WriteLine($"Resultado do dado: {resultadoDado}");
 
+                    // Salvar a jogada no arquivo
+                    SalvarJogada(filePath, jogador.Cor, resultadoDado);
+
                     if (TodosPeoesNaBase(jogador) && resultadoDado != 6)
                     {
                         Console.WriteLine("Todos os peões estão na base e você não tirou 6. Sua vez foi pulada.");
@@ -102,16 +109,21 @@ namespace Ludo
                             break;
                         }
 
+                        // Salvar a escolha do peão no arquivo
+                        SalvarJogada(filePath, jogador.Cor, resultadoDado, peaoEscolhido);
+
                         if (resultadoDado == 6 && jogador[peaoEscolhido - 1] == -1)
                         {
                             jogador[peaoEscolhido - 1] = 0;
                         }
                         else
                         {
+                            int novaPosicao = jogador[peaoEscolhido - 1] + resultadoDado;
+
                             if (jogador.EstaNoCaminhoDaVitoria(jogador[peaoEscolhido - 1]))
                             {
-                                int posicaoAtualNoCaminho = jogador.PosicaoNoCaminhoDaVitoria(jogador[peaoEscolhido - 1]);
-                                int novaPosicaoNoCaminho = posicaoAtualNoCaminho + resultadoDado;
+                                int posicaoNoCaminho = jogador.PosicaoNoCaminhoDaVitoria(jogador[peaoEscolhido - 1]);
+                                int novaPosicaoNoCaminho = posicaoNoCaminho + resultadoDado;
 
                                 if (novaPosicaoNoCaminho == 6)
                                 {
@@ -131,10 +143,9 @@ namespace Ludo
                             }
                             else
                             {
-                                int novaPosicao = (jogador[peaoEscolhido - 1] + resultadoDado);
                                 if (novaPosicao <= 52)
                                 {
-                                    jogador[peaoEscolhido - 1] = novaPosicao == 0 ? 52 : novaPosicao;
+                                    jogador[peaoEscolhido - 1] = novaPosicao;
                                 }
                                 else
                                 {
@@ -145,9 +156,14 @@ namespace Ludo
                                     }
                                     else
                                     {
-                                        jogador[peaoEscolhido - 1] = novaPosicao - 52;
+                                        Console.WriteLine("Movimento inválido. Escolha outra peça.");
+                                        jogarNovamente = false;
+                                        continue;
                                     }
                                 }
+
+                                // Verifica se a nova posição já está ocupada por um peão inimigo
+                                ComerPeaoInimigo(jogador, peaoEscolhido - 1, jogadores);
                                 jogarNovamente = resultadoDado == 6; // Joga novamente se tirou 6
                             }
                         }
@@ -186,6 +202,21 @@ namespace Ludo
             }
         }
 
+        static void SalvarJogada(string filePath, string corJogador, int resultadoDado, int? peaoEscolhido = null)
+        {
+            using (StreamWriter arq = new StreamWriter(filePath, true, Encoding.UTF8))
+            {
+                if (peaoEscolhido.HasValue)
+                {
+                    arq.WriteLine($"Jogador: {corJogador}, Dado: {resultadoDado}, Peão Escolhido: {peaoEscolhido}");
+                }
+                else
+                {
+                    arq.WriteLine($"Jogador: {corJogador}, Dado: {resultadoDado}");
+                }
+            }
+        }
+
         static bool TodosPeoesNaBase(Jogadores jogador)
         {
             for (int i = 0; i < jogador.Peoes.Length; i++)
@@ -219,6 +250,26 @@ namespace Ludo
                 else
                 {
                     Console.WriteLine($"Posição {jogador[i]}");
+                }
+            }
+        }
+
+        // Adiciona o método ComerPeaoInimigo que verifica se um peão inimigo está na mesma posição
+        static void ComerPeaoInimigo(Jogadores jogador, int peaoIndex, Jogadores[] jogadores)
+        {
+            int posicaoPeao = jogador[peaoIndex];
+            foreach (var jogadorInimigo in jogadores)
+            {
+                if (jogadorInimigo != jogador)
+                {
+                    for (int i = 0; i < jogadorInimigo.Peoes.Length; i++)
+                    {
+                        if (jogadorInimigo[i] == posicaoPeao)
+                        {
+                            jogadorInimigo[i] = -1; // Move o peão inimigo de volta para a base
+                            Console.WriteLine($"Peão do jogador {jogadorInimigo.Cor} foi comido e voltou para a base.");
+                        }
+                    }
                 }
             }
         }
@@ -290,8 +341,7 @@ namespace Ludo
 
             public int Dados()
             {
-                int d = r.Next(1, 7);
-                return d;
+                return r.Next(1, 7);
             }
         }
     }
